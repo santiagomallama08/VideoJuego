@@ -68,7 +68,7 @@ export default class Experience {
       }
     })
 
-    
+
     // Cámara y renderer
     this.camera = new Camera(this)
     this.renderer = new Renderer(this)
@@ -173,6 +173,77 @@ export default class Experience {
       })
     }
   }
+  resetGameToCurrentLevel() {
+  const currentLevel = this.world.levelManager?.currentLevel || 1;
+  console.log(`🔁 Reiniciando el nivel actual (${currentLevel})...`);
+
+  // 💀 Destruir enemigos previos si existen
+  if (Array.isArray(this.world.enemies)) {
+    this.world.enemies.forEach(e => e?.destroy?.());
+    this.world.enemies = [];
+  } else if (this.world.enemy) {
+    this.world.enemy.destroy?.();
+    this.world.enemy = null;
+  }
+
+  // 🧹 Resetear variables del mundo
+  this.world.points = 0;
+  this.world.robot.points = 0;
+  this.world.loader.prizes = [];
+  this.world.defeatTriggered = false;
+  this.world.levelManager.currentLevel = currentLevel;
+
+  // 🕓 Limpiar escena (evita errores de cuerpos activos)
+  setTimeout(() => {
+    console.log("🧹 Limpiando escena...");
+    this.world.clearCurrentScene();
+  }, 200);
+
+  // 🧠 Cargar el nivel nuevamente
+  setTimeout(() => {
+    console.log(`🎮 Cargando nuevamente el nivel ${currentLevel}...`);
+    this.world.loadLevel(currentLevel);
+
+    // ✅ Reactivar teclado
+    this.keyboard = new KeyboardControls();
+    console.log("⌨️ Nueva instancia de teclado creada.");
+
+    // ✅ Reconectar teclado al robot
+    if (this.world.robot) {
+      this.world.robot.keyboard = this.keyboard;
+      this.world.robot.isDead = false;
+      console.log("🤖 Nuevo teclado asignado al robot.");
+    } else {
+      setTimeout(() => {
+        if (this.world.robot) {
+          this.world.robot.keyboard = this.keyboard;
+          this.world.robot.isDead = false;
+          console.log("⏳ Teclado asignado al robot tras carga tardía.");
+        }
+      }, 1000);
+    }
+
+    // ✅ Recrear enemigo automáticamente
+    setTimeout(() => {
+      if (!this.world.enemy) {
+        console.log("👾 Recreando enemigo tras reinicio...");
+        this.world.spawnEnemy?.(); // 👈 usamos el método interno si existe
+      } else {
+        console.log("👾 Enemigo ya está activo, se omite recreación.");
+      }
+    }, 1200);
+
+    this.world.gameStarted = true;
+    console.log(`✅ Nivel ${currentLevel} recargado correctamente.`);
+  }, 600);
+
+  // 🕒 Reiniciar el seguimiento del tiempo (tracker)
+  if (this.tracker) this.tracker.destroy();
+  this.tracker = new GameTracker({ modal: this.modal, menu: this.menu });
+  this.tracker.start();
+}
+
+
 
   toggleWalkMode() {
     this.isThirdPerson = !this.isThirdPerson
@@ -391,4 +462,20 @@ export default class Experience {
   }
 
 
+}
+export function clearHUD() {
+  const selectors = [
+    ".hud-container",
+    ".score-display",
+    ".timer-display",
+    ".menu-button",
+    ".circular-menu",
+    ".modal",
+    ".game-ui",
+    ".menu-toggle",
+  ]
+  selectors.forEach((selector) => {
+    document.querySelectorAll(selector).forEach((el) => el.remove())
+  })
+  console.log("🧼 HUD eliminado completamente del DOM")
 }

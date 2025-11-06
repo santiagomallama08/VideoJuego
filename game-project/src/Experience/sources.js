@@ -31,7 +31,12 @@ export default [
         type: 'gltfModel',
         path: '/models/Robot/Robot.glb'
     },
-        {
+    {
+        name: 'enemyModel',
+        type: 'gltfModel',
+        path: '/models/Enemy/enemy.glb'
+    },
+    {
         "name": "baked_lev1",
         "type": "gltfModel",
         "path": "/models/toycar/baked_lev1.glb"

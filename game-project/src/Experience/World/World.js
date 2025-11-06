@@ -85,18 +85,47 @@ export default class World {
     }
 
     // Crear varios enemigos en posiciones alejadas del jugador para evitar atascos iniciales
+    // Crear varios enemigos en posiciones alejadas del jugador
     spawnEnemies(count = 3) {
-        if (!this.robot?.body?.position) return
+        console.log('🎯 spawnEnemies() llamado con count:', count)
+
+        if (!this.robot?.body?.position) {
+            console.error('❌ No se puede crear enemigos: Robot no tiene cuerpo físico')
+            return
+        }
+
         const playerPos = this.robot.body.position
+        console.log('📍 Posición del jugador:', playerPos)
+
         const minRadius = 25
         const maxRadius = 40
 
-        // Limpia anteriores si existen
+        // 🧹 Eliminar enemigos previos si existen
         if (this.enemies?.length) {
+            console.log(`🧹 Eliminando ${this.enemies.length} enemigos previos...`)
             this.enemies.forEach(e => e?.destroy?.())
+            this.enemies = []
+        } else {
             this.enemies = []
         }
 
+        // ⚠️ Verificar que el modelo del enemigo esté cargado
+        const enemyResource = this.experience.resources.items.enemyModel
+        if (!enemyResource || !enemyResource.scene) {
+            console.error('❌ Modelo enemyModel no está cargado.')
+            console.log('📦 Recursos disponibles:', Object.keys(this.experience.resources.items))
+            console.log('💡 Asegúrate de tener esta línea en tu archivo de recursos:')
+            console.log(`{
+    name: 'enemyModel',
+    type: 'gltfModel',
+    path: '/models/enemy.glb'
+}`)
+            return
+        }
+
+        console.log('✅ Modelo enemyModel encontrado, creando enemigos...')
+
+        // 🧟‍♂️ Crear nuevos enemigos
         for (let i = 0; i < count; i++) {
             const angle = Math.random() * Math.PI * 2
             const radius = minRadius + Math.random() * (maxRadius - minRadius)
@@ -104,35 +133,73 @@ export default class World {
             const z = playerPos.z + Math.sin(angle) * radius
             const y = 1.5
 
-            const enemy = new Enemy({
-                scene: this.scene,
-                physicsWorld: this.experience.physics.world,
-                playerRef: this.robot,
-                model: this.enemyTemplate,
-                position: new THREE.Vector3(x, y, z),
-                experience: this.experience
-            })
+            console.log(`🧟 Creando enemigo ${i + 1} en posición: x=${x.toFixed(2)}, y=${y}, z=${z.toFixed(2)}`)
 
-            // Pequeño delay para que no ataquen todos a la vez
+            // 🆕 IMPORTANTE: No pasar el parámetro "model", el Enemy lo carga internamente
+            const enemy = new Enemy(
+                this.experience,  // Solo pasar experience
+                { x, y, z }       // Y la posición
+            )
+
+            // 🕒 Delay para que no ataquen todos al mismo tiempo
             enemy.delayActivation = 1.0 + i * 0.5
+
             this.enemies.push(enemy)
+            console.log(`✅ Enemigo ${i + 1} creado y agregado al array`)
         }
+
+        console.log(`✅ Total de ${count} enemigos generados correctamente.`)
+        console.log('🎯 Array de enemigos:', this.enemies)
     }
+
 
     toggleAudio() {
         this.ambientSound.toggle()
     }
+    spawnEnemy() {
+        console.log("👾 Spawning nuevo enemigo (posición aleatoria)...");
+
+        // 🧠 Si ya existía un enemigo anterior, eliminarlo
+        if (this.enemy) {
+            this.enemy.destroy();
+            this.enemy = null;
+        }
+
+        // 🎲 Generar una posición aleatoria dentro de un rango controlado
+        const range = 40; // radio máximo de aparición
+        const minDistanceFromPlayer = 10; // evitar que aparezca encima del robot
+
+        const randomPos = () => {
+            let x, z, dist;
+            do {
+                x = (Math.random() - 0.5) * range * 2; // de -range a +range
+                z = (Math.random() - 0.5) * range * 2;
+                const playerPos = this.robot?.body?.position || { x: 0, z: 0 };
+                dist = Math.sqrt((x - playerPos.x) ** 2 + (z - playerPos.z) ** 2);
+            } while (dist < minDistanceFromPlayer); // repetir si está demasiado cerca
+            return { x, y: 1.5, z };
+        };
+
+        const position = randomPos();
+
+        // 🚀 Crear el enemigo con esa posición
+        this.enemy = new Enemy(this.experience, position);
+        console.log(`✅ Enemigo creado en posición aleatoria: x=${position.x.toFixed(2)}, z=${position.z.toFixed(2)}`);
+
+        return this.enemy;
+    }
+
 
     update(delta) {
         this.fox?.update()
         this.robot?.update()
         this.blockPrefab?.update()
 
-        // 🧟‍♂️ Solo actualizar enemigos si el juego ya comenzó
-        if (this.gameStarted) {
-            this.enemies?.forEach(e => e.update(delta))
+        // 🧟‍♂️ Actualizar enemigos SIEMPRE (para que se vean y se muevan)
+        this.enemies?.forEach(e => e.update(delta))
 
-            // 💀 Verificar si algún enemigo atrapó al jugador
+        // 💀 Solo verificar colisión si el juego ya comenzó
+        if (this.gameStarted) {
             const distToClosest = this.enemies?.reduce((min, e) => {
                 if (!e?.body?.position || !this.robot?.body?.position) return min
                 const d = e.body.position.distanceTo(this.robot.body.position)
@@ -161,7 +228,7 @@ export default class World {
                     buttons: [
                         {
                             text: '🔁 Reintentar',
-                            onClick: () => this.experience.resetGameToFirstLevel()
+                            onClick: () => this.experience.resetGameToCurrentLevel
                         },
                         {
                             text: '❌ Salir',
@@ -400,6 +467,7 @@ export default class World {
     }
 
 
+
     async loadLevel(level) {
         try {
             const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
@@ -410,7 +478,7 @@ export default class World {
                 const res = await fetch(apiUrl);
                 if (!res.ok) throw new Error('Error desde API');
                 // Asegurar que la respuesta sea JSON
-                const ct = res.headers.get('content-type') || '';
+                const ct = res.headers.gzet('content-type') || '';
                 if (!ct.includes('application/json')) {
                     const preview = (await res.text()).slice(0, 120);
                     throw new Error(`Respuesta no-JSON desde API (${apiUrl}): ${preview}`);
@@ -446,6 +514,12 @@ export default class World {
             }
 
             const spawnPoint = data.spawnPoint || { x: 5, y: 1.5, z: 5 };
+            if (level === 3) {
+                spawnPoint.x = 0;       // mueve horizontalmente si hace falta
+                spawnPoint.y = -1.7;    // ajusta para que aparezca justo sobre la carretera
+                spawnPoint.z = 0;
+                console.log("📍 Spawn especial aplicado para nivel 3:", spawnPoint);
+            }
             this.points = 0;
             this.robot.points = 0;
             this.finalPrizeActivated = false;
@@ -483,6 +557,11 @@ export default class World {
             console.log(`🎯 Total de monedas default para el nivel ${level}: ${this.totalDefaultCoins}`);
 
             this.resetRobotPosition(spawnPoint);
+            if (level === 3) {
+                console.log("🚗 Ajuste de posición especial para nivel 3 aplicado al robot.");
+                this.robot.group.position.y = -2.0;
+                this.robot.body.position.y = -2.0;
+            }
             console.log(`✅ Nivel ${level} cargado con spawn en`, spawnPoint);
         } catch (error) {
             console.error('❌ Error cargando nivel:', error);
