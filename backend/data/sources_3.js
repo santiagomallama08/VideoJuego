@@ -285,11 +285,6 @@ export const sources = [
         "path": "/models/toycar/road_straight.001_lev3.glb"
     },
     {
-        "name": "road_straight.002_lev3",
-        "type": "gltfModel",
-        "path": "/models/toycar/road_straight.002_lev3.glb"
-    },
-    {
         "name": "road_straight.003_lev3",
         "type": "gltfModel",
         "path": "/models/toycar/road_straight.003_lev3.glb"
@@ -378,11 +373,6 @@ export const sources = [
         "name": "road_straight.020_lev3",
         "type": "gltfModel",
         "path": "/models/toycar/road_straight.020_lev3.glb"
-    },
-    {
-        "name": "road_straight.021_lev3",
-        "type": "gltfModel",
-        "path": "/models/toycar/road_straight.021_lev3.glb"
     },
     {
         "name": "road_straight_lev3",

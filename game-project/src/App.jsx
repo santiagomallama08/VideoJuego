@@ -44,28 +44,36 @@ const App = () => {
   }, [isAuthenticated]);
 
   const handleLogin = async (e) => {
-    e.preventDefault();
-    try {
-      const res = await fetch("http://localhost:3001/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+  e.preventDefault();
+  try {
+    const res = await fetch("http://localhost:3001/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
 
-      const data = await res.json();
+    const data = await res.json();
 
-      if (res.ok) {
-        localStorage.setItem("token", data.token);
+    if (res.ok) {
+      // ✅ Ajuste: acceder correctamente al token
+      const token = data.token || data.user?.token;
+
+      if (token) {
+        localStorage.setItem("token", token);
         setMessage("✅ Bienvenido al juego");
         setIsAuthenticated(true);
         setLoading(true);
       } else {
-        setMessage("❌ " + data.message);
+        setMessage("⚠️ No se recibió token del servidor");
       }
-    } catch {
-      setMessage("⚠️ Error al conectar con el servidor");
+    } else {
+      setMessage("❌ " + data.message);
     }
-  };
+  } catch {
+    setMessage("⚠️ Error al conectar con el servidor");
+  }
+};
+
 
   const handleRegister = async (e) => {
     e.preventDefault();

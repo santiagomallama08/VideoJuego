@@ -82,7 +82,6 @@
     "road_corner_lev3",
     "road_straight_lev3",
     "road_straight.001_lev3",
-    "road_straight.002_lev3",
     "road_straight.003_lev3",
     "road_straight.004_lev3",
     "road_straight.005_lev3",
@@ -104,7 +103,6 @@
     "road_straight.006_lev3",
     "road_straight.007_lev3",
     "road_straight.020_lev3",
-    "road_straight.021_lev3",
     "large_buildingg_lev3",
     "skyscraperf_lev3",
     "small_buildingd_lev3",
@@ -167,4 +165,6 @@
     "node.016_lev3",
     "node.017_lev3",
     "node.018_lev3"
+    
+    
 ]

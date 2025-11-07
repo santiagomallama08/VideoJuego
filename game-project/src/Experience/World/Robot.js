@@ -189,6 +189,20 @@ export default class Robot {
         this.animation.play('idle')
         this.body.wakeUp()
     }
+    normalizeMovement() {
+    if (!this.body) return;
+
+    // Asegurar que el cuerpo no esté "pesado" ni frenado
+    this.body.mass = 2;
+    this.body.linearDamping = 0.05;
+    this.body.angularDamping = 0.9;
+
+    // Asegurar que no tenga velocidad residual extraña
+    this.body.velocity.set(0, 0, 0);
+    this.body.angularVelocity.set(0, 0, 0);
+
+    console.log("⚙️ Movimiento del robot normalizado tras recoger monedas.");
+}
 
 
     // 🔄 Actualización del movimiento

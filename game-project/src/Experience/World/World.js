@@ -1,3 +1,4 @@
+
 import * as THREE from 'three'
 import Environment from './Environment.js'
 import Fox from './Fox.js'
@@ -206,39 +207,66 @@ export default class World {
                 return Math.min(min, d)
             }, Infinity) ?? Infinity
 
-            if (distToClosest < 1.0 && !this.defeatTriggered) {
-                this.defeatTriggered = true  // Previene múltiples disparos
+            // 💀 Comprobación de distancia visual real entre modelos (no cuerpos Cannon)
+            if (this.gameStarted) {
+                let closestEnemy = null
+                let visualDist = Infinity
 
-                if (window.userInteracted && this.loseSound) {
-                    this.loseSound.play()
-                }
-
-                const firstEnemy = this.enemies?.[0]
-                const enemyMesh = firstEnemy?.model || firstEnemy?.group
-                if (enemyMesh) {
-                    enemyMesh.scale.set(1.3, 1.3, 1.3)
-                    setTimeout(() => {
-                        enemyMesh.scale.set(1, 1, 1)
-                    }, 500)
-                }
-
-                this.experience.modal.show({
-                    icon: '💀',
-                    message: '¡El enemigo te atrapó!\n¿Quieres intentarlo otra vez?',
-                    buttons: [
-                        {
-                            text: '🔁 Reintentar',
-                            onClick: () => this.experience.resetGameToCurrentLevel
-                        },
-                        {
-                            text: '❌ Salir',
-                            onClick: () => this.experience.resetGame()
+                // 🔎 Buscar el enemigo más cercano visualmente
+                this.enemies?.forEach(e => {
+                    if (e?.model && this.robot?.group) {
+                        const d = e.model.position.distanceTo(this.robot.group.position)
+                        if (d < visualDist) {
+                            visualDist = d
+                            closestEnemy = e
                         }
-                    ]
+                    }
                 })
 
-                return
+                // 🎯 Si el enemigo está realmente cerca, ejecutar muerte
+                if (closestEnemy && visualDist < 1.5 && !this.defeatTriggered) {
+                    this.defeatTriggered = true // evita dobles disparos
+                    console.log(`💀 Enemigo mató al jugador a ${visualDist.toFixed(2)}m`)
+
+                    // 🔊 Reproducir sonido con contexto seguro
+                    const ctx = window.Howler?.ctx
+                    if (window.userInteracted && this.loseSound) {
+                        if (ctx && ctx.state === 'suspended') {
+                            ctx.resume().then(() => this.loseSound.play())
+                        } else {
+                            this.loseSound.play()
+                        }
+                    }
+
+                    // 💫 Animación visual en el enemigo que mató
+                    const enemyMesh = closestEnemy?.model || closestEnemy?.group
+                    if (enemyMesh) {
+                        enemyMesh.scale.set(1.3, 1.3, 1.3)
+                        setTimeout(() => {
+                            enemyMesh.scale.set(1, 1, 1)
+                        }, 500)
+                    }
+
+                    // 💬 Mostrar modal de derrota
+                    this.experience.modal.show({
+                        icon: '💀',
+                        message: '¡El enemigo te atrapó!\n¿Quieres intentarlo otra vez?',
+                        buttons: [
+                            {
+                                text: '🔁 Reintentar',
+                                onClick: () => this.experience.resetGameToCurrentLevel()
+                            },
+                            {
+                                text: '❌ Salir',
+                                onClick: () => this.experience.resetGame()
+                            }
+                        ]
+                    })
+
+                    return
+                }
             }
+
         }
 
         if (this.thirdPersonCamera && this.experience.isThirdPerson && !this.experience.renderer.instance.xr.isPresenting) {
@@ -690,6 +718,18 @@ export default class World {
 
         this.robot.group.position.set(spawn.x, spawn.y, spawn.z)
         this.robot.group.rotation.set(0, 0, 0)
+        // 🦊 Reposicionar el zorro junto al robot al reiniciar nivel
+        if (this.fox?.model) {
+            // Colocar al zorro detrás del robot (manteniendo distancia natural)
+            const offset = new THREE.Vector3(-2, 0, -2)
+            const foxPos = new THREE.Vector3(spawn.x, spawn.y, spawn.z).add(offset)
+
+            this.fox.model.position.copy(foxPos)
+            this.fox.model.rotation.set(0, 0, 0)
+
+            console.log('🦊 Fox reposicionado junto al robot en nuevo nivel:', foxPos)
+        }
+
     }
 
     async _processLocalBlocks(blocks) {

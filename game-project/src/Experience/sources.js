@@ -391,7 +391,7 @@ export default [
         "type": "gltfModel",
         "path": "/models/toycar/small_buildinge_lev2.glb"
     },
-    {
+     {
         "name": "baked_lev1_lev3",
         "type": "gltfModel",
         "path": "/models/toycar/baked_lev1_lev3.glb"
@@ -677,11 +677,6 @@ export default [
         "path": "/models/toycar/road_straight.001_lev3.glb"
     },
     {
-        "name": "road_straight.002_lev3",
-        "type": "gltfModel",
-        "path": "/models/toycar/road_straight.002_lev3.glb"
-    },
-    {
         "name": "road_straight.003_lev3",
         "type": "gltfModel",
         "path": "/models/toycar/road_straight.003_lev3.glb"
@@ -770,11 +765,6 @@ export default [
         "name": "road_straight.020_lev3",
         "type": "gltfModel",
         "path": "/models/toycar/road_straight.020_lev3.glb"
-    },
-    {
-        "name": "road_straight.021_lev3",
-        "type": "gltfModel",
-        "path": "/models/toycar/road_straight.021_lev3.glb"
     },
     {
         "name": "road_straight_lev3",
@@ -876,4 +866,6 @@ export default [
         "type": "gltfModel",
         "path": "/models/toycar/towncenter_secondage_level1_lev3.glb"
     }
+    
+   
 ]
