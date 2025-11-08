@@ -173,78 +173,90 @@ export default class Experience {
       })
     }
   }
-  resetGameToCurrentLevel() {
-    const currentLevel = this.world.levelManager?.currentLevel || 1;
-    console.log(`🔁 Reiniciando el nivel actual (${currentLevel})...`);
 
-    // 💀 Destruir enemigos previos
-    if (Array.isArray(this.world.enemies)) {
-      this.world.enemies.forEach(e => e?.destroy?.());
-      this.world.enemies = [];
-    } else if (this.world.enemy) {
-      this.world.enemy.destroy?.();
-      this.world.enemy = null;
-    }
+resetGameToCurrentLevel() {
+  const currentLevel = this.world.levelManager?.currentLevel || 1;
+  console.log(`🔁 Reiniciando el nivel actual (${currentLevel})...`);
 
-    // 🧹 Resetear variables globales
-    // 🧹 Resetear variables globales
-    this.world.points = 0;
-    this.world.robot.points = 0;
-    this.world.defeatTriggered = false;
-    this.world.levelManager.currentLevel = currentLevel;
-
-    // 💥 Eliminar todas las monedas previas del loader
-    if (this.world.loader?.prizes?.length) {
-      this.world.loader.prizes.forEach(prize => {
-        if (prize.model) {
-          this.world.scene.remove(prize.model);
-          prize.model.geometry?.dispose?.();
-          prize.model.material?.dispose?.();
-        }
-        if (prize.pivot) {
-          this.world.scene.remove(prize.pivot);
-        }
-      });
-      this.world.loader.prizes = [];
-      console.log("🪙 Monedas limpiadas antes de recargar el nivel");
-    }
-
-    // 🧽 Limpiar escena
-    setTimeout(() => {
-      console.log("🧹 Limpiando escena...");
-      this.world.clearCurrentScene();
-    }, 200);
-
-
-    // 🔁 Recargar nivel y regenerar todo
-    setTimeout(async () => {
-      console.log(`🎮 Cargando nuevamente el nivel ${currentLevel}...`);
-      await this.world.loadLevel(currentLevel);
-
-      // Reactivar controles del jugador
-      this.keyboard = new KeyboardControls();
-      this.world.robot.isDead = false;
-      console.log("⌨️ Controles de teclado reactivados.");
-
-      // 🧠 Asegurar que el robot recupere animaciones
-      if (this.world.robot?.animation) {
-        this.world.robot.animation.play("idle");
-      }
-
-      // 👾 Regenerar enemigo con animación activa
-      if (typeof this.world.spawnEnemy === "function") {
-        console.log("👾 Creando nuevo enemigo...");
-        this.world.spawnEnemy(true);
-      } else if (this.world.enemy) {
-        console.log("🎬 Reiniciando animación del enemigo...");
-        this.world.enemy.killedPlayer = false;
-        this.world.enemy.playAnimation("walking");
-      }
-
-      this.world.gameStarted = true;
-      console.log(`✅ Nivel ${currentLevel} recargado correctamente.`);
-    }, 800);
+  // 💀 Destruir enemigos previos
+  if (Array.isArray(this.world.enemies)) {
+    this.world.enemies.forEach(e => e?.destroy?.());
+    this.world.enemies = [];
+  } else if (this.world.enemy) {
+    this.world.enemy.destroy?.();
+    this.world.enemy = null;
   }
+
+  // 🧹 Resetear variables globales
+  this.world.points = 0;
+  this.world.robot.points = 0;
+  this.world.defeatTriggered = false;
+  this.world.levelManager.currentLevel = currentLevel;
+
+  // 💥 Eliminar monedas previas
+  if (this.world.loader?.prizes?.length) {
+    this.world.loader.prizes.forEach(prize => {
+      if (prize.model) {
+        this.world.scene.remove(prize.model);
+        prize.model.geometry?.dispose?.();
+        prize.model.material?.dispose?.();
+      }
+      if (prize.pivot) this.world.scene.remove(prize.pivot);
+    });
+    this.world.loader.prizes = [];
+    console.log("🪙 Monedas limpiadas antes de recargar el nivel");
+  }
+
+  // 🧽 Limpiar escena
+  setTimeout(() => {
+    console.log("🧹 Limpiando escena...");
+    this.world.clearCurrentScene();
+  }, 200);
+
+  // 🔁 Recargar nivel
+  setTimeout(async () => {
+    console.log(`🎮 Cargando nuevamente el nivel ${currentLevel}...`);
+    await this.world.loadLevel(currentLevel);
+
+    // Reactivar controles
+    this.keyboard = new KeyboardControls();
+    this.world.robot.isDead = false;
+    this.world.gameStarted = true;
+    console.log("⌨️ Controles de teclado reactivados.");
+
+    // 🧠 Restaurar animación del robot
+    if (this.world.robot?.animation) {
+      this.world.robot.animation.play("idle");
+    }
+
+    // 👾 Regenerar enemigos correctamente
+    if (typeof this.world.spawnEnemies === "function") {
+      console.log("👾 Creando nuevos enemigos...");
+      this.world.spawnEnemies(1); // o cambia el número según el nivel
+    }
+
+    // 🧩 Asegurar que los enemigos recién creados estén activos y animados
+    setTimeout(() => {
+      if (Array.isArray(this.world.enemies)) {
+        this.world.enemies.forEach(enemy => {
+          enemy.killedPlayer = false;
+          enemy.body.position.y = 1.5; // evitar que floten
+          enemy.model.position.copy(enemy.body.position);
+          enemy.playAnimation?.("walking");
+          console.log("✅ Enemigo reactivado con animación 'walking'");
+        });
+      } else if (this.world.enemy) {
+        this.world.enemy.killedPlayer = false;
+        this.world.enemy.body.position.y = 1.5;
+        this.world.enemy.model.position.copy(this.world.enemy.body.position);
+        this.world.enemy.playAnimation?.("walking");
+      }
+    }, 500);
+
+    console.log(`✅ Nivel ${currentLevel} recargado correctamente.`);
+  }, 800);
+}
+
 
 
   toggleWalkMode() {

@@ -11,6 +11,11 @@ export default class Enemy {
         this.time = experience.time
         this.playerRef = experience.world.robot
         this.position = position
+        // 🧭 Normalizar altura inicial para evitar enemigos flotando
+        if (!this.position.y || this.position.y < 1.5) {
+            this.position.y = 1.5; // asegurar que esté sobre el piso
+        }
+
         this.killedPlayer = false
         this.killDistance = 1.5 // 🔹 distancia para activar la animación de kill
 
@@ -50,27 +55,43 @@ export default class Enemy {
         })
     }
 
-    // ⚙️ Física
+    // ⚙️ Física del enemigo
     setPhysics() {
-        const shape = new CANNON.Sphere(1.2) // 🧠 colisionador acorde al tamaño
+        const shape = new CANNON.Sphere(1.2);
         this.body = new CANNON.Body({
             mass: 3,
             shape,
-            position: new CANNON.Vec3(this.position.x, this.position.y, this.position.z),
+            position: new CANNON.Vec3(
+                this.position.x,
+                this.position.y + 0.5, 
+                this.position.z
+            ),
+
             linearDamping: 0.05,
-        })
+        });
 
-        this.body.material = this.physics.robotMaterial
-        this.physics.world.addBody(this.body)
+        this.body.material = this.physics.robotMaterial;
+        this.physics.world.addBody(this.body);
+        // 🧩 Sincronizar modelo con cuerpo físico inicial
+        this.model.position.copy(this.body.position);
 
-        // 🧩 Detectar colisión directa con el robot (para matar al jugador)
+
+        // 🧩 Detectar colisión directa con el jugador
         this.body.addEventListener('collide', (event) => {
-            const other = event.body
-            if (!this.killedPlayer && other === this.playerRef?.body) {
-                this.killPlayer()
+            const other = event.body;
+
+            // Evita colisiones falsas
+            if (!this.playerRef || !this.playerRef.body) return;
+            if (!other || other.mass === 0) return; // Ignora suelo/objetos estáticos
+            if (this.playerRef.isDead || this.killedPlayer) return;
+
+            if (other.id === this.playerRef.body.id) {
+                console.log("💀 Colisión confirmada con el jugador.");
+                this.killPlayer();
             }
-        })
+        });
     }
+
 
     // 🔊 Sonido de alerta
     setSound() {
@@ -108,6 +129,12 @@ export default class Enemy {
             this.animation.actions.kill.clampWhenFinished = true
             console.log('✅ Animación kill configurada')
         }
+        if (this.animation.actions.walking) {
+            this.animation.actions.walking.play();
+            this.currentAction = this.animation.actions.walking;
+            console.log("🚶 Animación walking iniciada automáticamente.");
+        }
+
 
         this.currentAction = this.animation.actions.walking
     }
@@ -127,6 +154,15 @@ export default class Enemy {
 
         // 🌀 Actualizar animaciones
         if (this.animation?.mixer) this.animation.mixer.update(delta);
+        // 🧠 Asegurar que el enemigo siga animado si está activo
+        if (!this.killedPlayer && this.animation?.actions?.walking) {
+            const action = this.animation.actions.walking;
+            if (!action.isRunning()) {
+                this.playAnimation('walking');
+                console.log("🚶 Reanudando animación 'walking' del enemigo activo.");
+            }
+        }
+
 
         const player = this.playerRef?.body;
         if (!player) return;
@@ -143,7 +179,7 @@ export default class Enemy {
         dir.normalize();
 
         // 🔥 Movimiento constante hacia el jugador
-        const moveSpeed = 2.2; // ajusta para más o menos agresividad
+        const moveSpeed = 1.0; // ajusta para más o menos agresividad
         this.body.velocity.x = dir.x * moveSpeed;
         this.body.velocity.z = dir.z * moveSpeed;
 
@@ -228,23 +264,18 @@ export default class Enemy {
                 message: '¡El enemigo te atrapó!\n¿Quieres intentarlo otra vez?',
                 buttons: [
                     {
+
                         text: '🔄 Volver a jugar',
                         onClick: () => {
                             console.log('🔁 Reiniciando el nivel actual...');
                             modal.hide();
-
-                            // 🧩 Reiniciar estado del enemigo antes de recargar
-                            this.killedPlayer = false;
-                            if (this.animation?.actions?.walking) {
-                                this.playAnimation('walking');
-                            }
 
                             // 🧠 Reactivar controles del jugador
                             if (this.experience.keyboard) {
                                 this.experience.keyboard.isDisabled = false;
                             }
 
-                            // 🧱 Llamar al método de reinicio de nivel actual
+                            // 🧱 Reiniciar el nivel (los nuevos enemigos aparecerán animados)
                             if (typeof this.experience.resetGameToCurrentLevel === 'function') {
                                 this.experience.resetGameToCurrentLevel();
                             } else {
@@ -252,7 +283,8 @@ export default class Enemy {
                                 this.experience.world.loadLevel?.(currentLevel);
                             }
                         }
-                    },
+                    }
+                    ,
                     {
                         text: '🚪 Salir',
                         onClick: () => {
@@ -272,49 +304,13 @@ export default class Enemy {
     }
 
     destroy() {
-        console.log("💀 Destruyendo enemigo y limpiando recursos...");
-
-        // 🛑 Detener cualquier sonido activo
-        if (this.alertSound) {
-            try { this.alertSound.stop(); } catch (_) { }
-            this.alertSound = null;
-        }
-
-        // 🧹 Eliminar modelo y grupo de la escena
-        if (this.model?.parent) {
-            this.scene.remove(this.model);
-        }
-        if (this.group?.parent) {
-            this.scene.remove(this.group);
-        }
-
-        // 🧠 Limpiar físicas
-        if (this.body && this.physics?.world) {
-            this.physics.world.removeBody(this.body);
-            this.body = null;
-        }
-
-        // 🎬 Liberar correctamente las animaciones
-        if (this.animation?.mixer) {
-            try {
-                this.animation.mixer.stopAllAction();
-                this.animation.mixer.uncacheRoot(this.model);
-                this.animation.mixer.uncacheClip?.(this.currentAction);
-            } catch (e) {
-                console.warn("⚠️ Error al limpiar mixer:", e);
-            }
-            this.animation.mixer = null;
-            this.animation.actions = {};
-        }
-
-        // 🚫 Quitar referencias
-        this.model = null;
-        this.group = null;
-        this.currentAction = null;
-        this.killedPlayer = false;
-
-        console.log("✅ Enemigo destruido correctamente.");
+        if (this.alertSound) this.alertSound.stop();
+        if (this.body) this.physics.world.removeBody(this.body);
+        if (this.group?.parent) this.scene.remove(this.group);
+        if (this.model?.parent) this.scene.remove(this.model);
+        console.log("🧟 Enemigo eliminado correctamente (sin detener mixer).");
     }
+
 
 
 }

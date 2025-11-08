@@ -119,7 +119,7 @@ export default class World {
             console.log(`{
     name: 'enemyModel',
     type: 'gltfModel',
-    path: '/models/enemy.glb'
+    path: '/models/Enemy/enemy.glb'
 }`)
             return
         }
@@ -141,6 +141,8 @@ export default class World {
                 this.experience,  // Solo pasar experience
                 { x, y, z }       // Y la posición
             )
+            enemy.playAnimation?.('walking'); // 🟢 asegúrate de que arranque caminando
+
 
             // 🕒 Delay para que no ataquen todos al mismo tiempo
             enemy.delayActivation = 1.0 + i * 0.5
@@ -199,75 +201,55 @@ export default class World {
         // 🧟‍♂️ Actualizar enemigos SIEMPRE (para que se vean y se muevan)
         this.enemies?.forEach(e => e.update(delta))
 
-        // 💀 Solo verificar colisión si el juego ya comenzó
-        if (this.gameStarted) {
-            const distToClosest = this.enemies?.reduce((min, e) => {
+        // 🧟‍♂️ Solo actualizar enemigos si el juego ya comenzó
+        if (this.gameStarted && Array.isArray(this.enemies) && this.enemies.length > 0) {
+            // Actualiza animaciones y movimiento de cada enemigo
+            this.enemies.forEach(e => e.update(delta))
+
+            // 💀 Calcular distancia más cercana entre enemigo y jugador
+            const distToClosest = this.enemies.reduce((min, e) => {
                 if (!e?.body?.position || !this.robot?.body?.position) return min
                 const d = e.body.position.distanceTo(this.robot.body.position)
                 return Math.min(min, d)
-            }, Infinity) ?? Infinity
+            }, Infinity)
 
-            // 💀 Comprobación de distancia visual real entre modelos (no cuerpos Cannon)
-            if (this.gameStarted) {
-                let closestEnemy = null
-                let visualDist = Infinity
+            // Si el enemigo realmente está lo bastante cerca y no se ha disparado derrota
+            if (distToClosest < 1.0 && !this.defeatTriggered) {
+                this.defeatTriggered = true
+                console.log("💀 El jugador fue atrapado por un enemigo (detecto en update).")
 
-                // 🔎 Buscar el enemigo más cercano visualmente
-                this.enemies?.forEach(e => {
-                    if (e?.model && this.robot?.group) {
-                        const d = e.model.position.distanceTo(this.robot.group.position)
-                        if (d < visualDist) {
-                            visualDist = d
-                            closestEnemy = e
-                        }
-                    }
-                })
+                // Reproduce sonido y muestra modal
+                if (window.userInteracted && this.loseSound) this.loseSound.play()
 
-                // 🎯 Si el enemigo está realmente cerca, ejecutar muerte
-                if (closestEnemy && visualDist < 1.5 && !this.defeatTriggered) {
-                    this.defeatTriggered = true // evita dobles disparos
-                    console.log(`💀 Enemigo mató al jugador a ${visualDist.toFixed(2)}m`)
-
-                    // 🔊 Reproducir sonido con contexto seguro
-                    const ctx = window.Howler?.ctx
-                    if (window.userInteracted && this.loseSound) {
-                        if (ctx && ctx.state === 'suspended') {
-                            ctx.resume().then(() => this.loseSound.play())
-                        } else {
-                            this.loseSound.play()
-                        }
-                    }
-
-                    // 💫 Animación visual en el enemigo que mató
-                    const enemyMesh = closestEnemy?.model || closestEnemy?.group
-                    if (enemyMesh) {
-                        enemyMesh.scale.set(1.3, 1.3, 1.3)
-                        setTimeout(() => {
-                            enemyMesh.scale.set(1, 1, 1)
-                        }, 500)
-                    }
-
-                    // 💬 Mostrar modal de derrota
-                    this.experience.modal.show({
-                        icon: '💀',
-                        message: '¡El enemigo te atrapó!\n¿Quieres intentarlo otra vez?',
-                        buttons: [
-                            {
-                                text: '🔁 Reintentar',
-                                onClick: () => this.experience.resetGameToCurrentLevel()
-                            },
-                            {
-                                text: '❌ Salir',
-                                onClick: () => this.experience.resetGame()
-                            }
-                        ]
-                    })
-
-                    return
+                const firstEnemy = this.enemies[0]
+                const enemyMesh = firstEnemy?.model || firstEnemy?.group
+                if (enemyMesh) {
+                    enemyMesh.scale.set(1.3, 1.3, 1.3)
+                    setTimeout(() => enemyMesh.scale.set(1, 1, 1), 500)
                 }
-            }
 
+                this.experience.modal.show({
+                    icon: '💀',
+                    message: '¡El enemigo te atrapó!\n¿Quieres intentarlo otra vez?',
+                    buttons: [
+                        {
+                            text: '🔁 Reintentar',
+                            onClick: () => this.experience.resetGameToCurrentLevel()
+                        },
+                        {
+                            text: '❌ Salir',
+                            onClick: () => this.experience.resetGame()
+                        }
+                    ]
+                })
+            }
+        } else {
+            // 👀 Protección extra: si no hay enemigos, no se evalúa nada
+            if (this.gameStarted && (!this.enemies || this.enemies.length === 0)) {
+                //console.warn("⚠️ No hay enemigos activos en este frame.")
+            }
         }
+
 
         if (this.thirdPersonCamera && this.experience.isThirdPerson && !this.experience.renderer.instance.xr.isPresenting) {
             this.thirdPersonCamera.update()
